@@ -70,7 +70,13 @@ class KodiService
 			['method' => 'Player.Open', 'params' => ['item' => ['movieid' => $selectedMovie['movieid']]]],
 			$this->baseParams
 		);
-		
-		return $this->curl->get(sprintf('?request=%s', urlencode(json_encode($params))));
+
+		$this->curl->get(sprintf('?request=%s', urlencode(json_encode($params))));
+
+		if ($this->curl->getLastStatusCode() == 200) {
+			return sprintf('Playing movie %s', $selectedMovie['label']);
+		} else {
+			return 'Something went wrong';
+		}
 	}	
 }
