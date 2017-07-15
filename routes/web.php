@@ -14,3 +14,6 @@
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::post('/alexa', 'AlexaController@test');
+Route::post('/kodi/movies', 'KodiController@playMovie');
