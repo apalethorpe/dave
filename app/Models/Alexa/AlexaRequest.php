@@ -15,7 +15,7 @@ class AlexaRequest
 
 	public function getIntent()
 	{
-		return $this->intent['name'];
+		return lcfirst($this->intent['name']);
 	}
 
 	public function getValue($slotName)

@@ -2,33 +2,38 @@
 
 namespace App\Services;
 
+use App\Models\Alexa\AlexaRequest;
 use App\Services\KodiCurl;
 
 class KodiService
 {
 	private $curl;
-	private $baseParams;
 
 	public function __construct(KodiCurl $curl)
 	{
 		$this->curl = $curl;
-		$this->baseParams = ['jsonrpc' => env('KODI_JSONRPC_VERSION'), 'id' => env('KODI_LIBRARY_ID')];
+		$this->curl->setParams(['jsonrpc' => env('KODI_JSONRPC_VERSION'), 'id' => env('KODI_LIBRARY_ID')]);
 	}
 
-	private function getMovies($decode = false)
+	public function pause(AlexaRequest $request)
 	{
-		$params = array_merge(['method' => 'VideoLibrary.GetMovies'], $this->baseParams);
-		$movies = $this->curl->get(sprintf('?request=%s', urlencode(json_encode($params))));
-		return $decode ? json_decode($movies, true) : $movies;
+		$this->pauseResume(true);
 	}
 
-	public function playMovie($requestedMovie)
+	public function resume(AlexaRequest $request)
 	{
+		$this->pauseResume(false);
+	}
+
+	public function playMovie(AlexaRequest $request)
+	{
+		$requestedMovie = $request->getValue('MovieTitle');
+
 		if (!$requestedMovie) {
 			throw new \Exception('No movie title provided');
 		}
 
-		$movies = $this->getMovies(true);
+		$movies = $this->getMovies();
 		$selectedMovie = null;
 
 		// Try to find an exact match or a title containing every word in the request
@@ -66,17 +71,57 @@ class KodiService
 			}
 		}
 
-		$params = array_merge(
-			['method' => 'Player.Open', 'params' => ['item' => ['movieid' => $selectedMovie['movieid']]]],
-			$this->baseParams
-		);
+		$params = ['method' => 'Player.Open', 'params' => ['item' => ['movieid' => $selectedMovie['movieid']]]];
 
-		$this->curl->get(sprintf('?request=%s', urlencode(json_encode($params))));
+		$this->curl->get($params);
 
 		if ($this->curl->getLastStatusCode() == 200) {
-			return sprintf('Playing movie %s', $selectedMovie['label']);
+			$responseText = sprintf('Playing movie %s', $selectedMovie['label']);
 		} else {
-			return 'Something went wrong';
+			$responseText = 'Something went wrong';
 		}
-	}	
+
+		return $responseText;
+	}
+
+	private function getPlayer()
+	{
+		$params = ['method' => 'Player.GetActivePlayers'];
+		$response = $this->curl->get($params);
+		return $response['result'][0]['playerid'];
+	}
+
+	private function getPlayerProperties($properties = [])
+	{
+		$params = [
+			'method' => 'Player.GetProperties',
+			'params' => ['playerid' => $this->getPlayer(), 'properties' => $properties]
+		];
+
+		return $this->curl->get($params)['result'];
+	}
+
+	private function isPaused()
+	{
+		return $this->getPlayerProperties(['speed'])['speed'] === 0;
+	}
+
+	private function pauseResume($pause)
+	{
+		if ((!$this->isPaused() && $pause) || ($this->isPaused() && !$pause)) {
+			$params = ['method' => 'Player.PlayPause', 'params' => ['playerid' => $this->getPlayer()], 'id' => 1];
+			$this->curl->get($params);
+			$responseText = 'OK';
+		} else {
+			$responseText = '';
+		}
+
+		return $responseText;
+	}
+
+	private function getMovies()
+	{
+		$params = ['method' => 'VideoLibrary.GetMovies'];
+		return $this->curl->get($params);
+	}
 }

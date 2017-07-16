@@ -21,7 +21,9 @@ class AlexaController extends Controller
 	{
 		$request = new AlexaRequest($request);
 
-		$result = $this->kodi->playMovie($request->getValue('MovieTitle'));
+		$intent = $request->getIntent();
+
+		$result = $this->kodi->$intent($request);
 		$response = new AlexaResponse($result);
 		return response()->json($response->get());
 	}
