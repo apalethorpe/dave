@@ -21,7 +21,7 @@ class AlexaRequest
 	public function getValue($slotName)
 	{
 		foreach ($this->intent['slots'] as $slot) {
-			if (strtolower($slot['name']) == strtolower($slotName)) {
+			if (isset($slot['name']) && isset($slot['value']) && strtolower($slot['name']) == strtolower($slotName)) {
 				return $slot['value'];
 			}
 		}
