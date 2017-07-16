@@ -25,6 +25,21 @@ class KodiService
 		return $this->pauseResume(false);
 	}
 
+	public function stop(AlexaRequest $request)
+	{
+		$player = $this->getPlayer();
+
+		$responseText = null;
+
+		if ($player !== null) {
+			$params = ['method' => 'Player.Stop', 'params' => ['playerid' => $player]];
+			$this->curl->get($params);
+			$responseText = 'OK';
+		}
+
+		return $responseText;
+	}
+
 	public function playMovie(AlexaRequest $request)
 	{
 		$requestedMovie = $request->getValue('MovieTitle');
@@ -88,28 +103,29 @@ class KodiService
 	{
 		$params = ['method' => 'Player.GetActivePlayers'];
 		$response = $this->curl->get($params);
-		return $response['result'][0]['playerid'];
+		return isset($response['result'][0]) ? $response['result'][0]['playerid'] : null;
 	}
 
-	private function getPlayerProperties($properties = [])
+	private function getPlayerProperties($player, $properties = [])
 	{
 		$params = [
 			'method' => 'Player.GetProperties',
-			'params' => ['playerid' => $this->getPlayer(), 'properties' => $properties]
+			'params' => ['playerid' => $player, 'properties' => $properties]
 		];
 
 		return $this->curl->get($params)['result'];
 	}
 
-	private function isPaused()
+	private function isPaused($player)
 	{
-		return $this->getPlayerProperties(['speed'])['speed'] === 0;
+		return $this->getPlayerProperties($player, ['speed'])['speed'] === 0;
 	}
 
 	private function pauseResume($pause)
 	{
-		if ((!$this->isPaused() && $pause) || ($this->isPaused() && !$pause)) {
-			$params = ['method' => 'Player.PlayPause', 'params' => ['playerid' => $this->getPlayer()], 'id' => 1];
+		$player = $this->getPlayer();
+		if ($player !== null && ((!$this->isPaused($player) && $pause) || ($this->isPaused($player) && !$pause))) {
+			$params = ['method' => 'Player.PlayPause', 'params' => ['playerid' => $player], 'id' => 1];
 			$this->curl->get($params);
 			return 'OK';
 		}

@@ -42,6 +42,11 @@ class Curl
         return $this->execute($url, $payload);
     }
 
+    public function put($url, $payload)
+    {
+        return $this->execute($url, $payload, 'PUT');
+    }
+
     public function getLastStatusCode()
     {
         return curl_getinfo($this->curlHandler, CURLINFO_HTTP_CODE);
