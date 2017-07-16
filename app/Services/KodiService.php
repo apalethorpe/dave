@@ -17,12 +17,12 @@ class KodiService
 
 	public function pause(AlexaRequest $request)
 	{
-		$this->pauseResume(true);
+		return $this->pauseResume(true);
 	}
 
 	public function resume(AlexaRequest $request)
 	{
-		$this->pauseResume(false);
+		return $this->pauseResume(false);
 	}
 
 	public function playMovie(AlexaRequest $request)
@@ -111,12 +111,8 @@ class KodiService
 		if ((!$this->isPaused() && $pause) || ($this->isPaused() && !$pause)) {
 			$params = ['method' => 'Player.PlayPause', 'params' => ['playerid' => $this->getPlayer()], 'id' => 1];
 			$this->curl->get($params);
-			$responseText = 'OK';
-		} else {
-			$responseText = '';
+			return 'OK';
 		}
-
-		return $responseText;
 	}
 
 	private function getMovies()
