@@ -76,6 +76,7 @@ class KodiService
 				} else {
 					$responseText = 'Something went wrong';
 				}
+				break;
 			}
 		}
 
