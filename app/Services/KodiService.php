@@ -27,7 +27,7 @@ class KodiService
 
 	public function stop(AlexaRequest $request)
 	{
-		$player = $this->getPlayer();
+		$player = $this->getPlayerId();
 
 		$responseText = null;
 
@@ -72,7 +72,7 @@ class KodiService
 
 			if ($isCorrectSeason && $isCorrectEpisode) {
 				if ($this->play($episode['episodeid'], 'episode')) {
-					$responseText = sprintf('Playing %s', $requestedShow);
+					$responseText = sprintf('Playing %s', $selectedShow['label']);
 				} else {
 					$responseText = 'Something went wrong';
 				}
@@ -92,6 +92,46 @@ class KodiService
 		return $responseText;
 	}
 
+	public function whatsPlaying(AlexaRequest $request)
+	{
+		$player = $this->getPlayer();
+
+		$responseText = null;
+
+		if ($player) {
+			$params = [
+				'method' => 'Player.GetItem',
+				'params' => [
+					'playerid' => $player['playerid'],
+					'properties' => ['title', 'album', 'artist', 'season', 'episode', 'showtitle']
+				]
+			];
+
+			$item = $this->curl->get($params)['result']['item'];
+
+			if ($item['type'] == 'song') {
+				$responseText = sprintf('You\'re listening to %s, by %s', $item['title'], $item['artist'][0]);
+			} elseif ($item['type'] == 'episode') {
+				var_dump($item);
+				$responseText = sprintf(
+					'You\'re watching "%s", season %d episode %d of %s',
+					$item['title'],
+					$item['season'],
+					$item['episode'],
+					$item['showtitle']
+				);
+			} elseif ($item['type'] == 'movie') {
+				$responseText = sprintf('You\'re watching %s', $item['title']);
+			} else {
+				$responseText = 'I don\'t know what\'s playing right now';
+			}
+		} else {
+			$responseText = 'There\'s nothing playing right now. Idiot.';
+		}
+
+		return $responseText;
+	}
+
 	private function play($itemId, $type = 'movie')
 	{
 		$params = ['method' => 'Player.Open', 'params' => ['item' => [$type . 'id' => $itemId]]];
@@ -105,7 +145,14 @@ class KodiService
 	{
 		$params = ['method' => 'Player.GetActivePlayers'];
 		$response = $this->curl->get($params);
-		return isset($response['result'][0]) ? $response['result'][0]['playerid'] : null;
+
+		return isset($response['result'][0]) ? $response['result'][0] : null;
+	}
+
+	private function getPlayerId()
+	{
+		$player = $this->getPlayer();
+		return isset($player['playerid']) ? $player['playerid'] : null;
 	}
 
 	private function getPlayerProperties($player, $properties = [])
@@ -125,7 +172,7 @@ class KodiService
 
 	private function pauseResume($pause)
 	{
-		$player = $this->getPlayer();
+		$player = $this->getPlayerId();
 		if ($player !== null && ((!$this->isPaused($player) && $pause) || ($this->isPaused($player) && !$pause))) {
 			$params = ['method' => 'Player.PlayPause', 'params' => ['playerid' => $player], 'id' => 1];
 			$this->curl->get($params);
