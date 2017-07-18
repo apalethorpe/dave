@@ -112,7 +112,6 @@ class KodiService
 			if ($item['type'] == 'song') {
 				$responseText = sprintf('You\'re listening to %s, by %s', $item['title'], $item['artist'][0]);
 			} elseif ($item['type'] == 'episode') {
-				var_dump($item);
 				$responseText = sprintf(
 					'You\'re watching "%s", season %d episode %d of %s',
 					$item['title'],
