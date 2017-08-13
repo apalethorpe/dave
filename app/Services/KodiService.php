@@ -176,39 +176,44 @@ class KodiService
 	public function playTVShow(AlexaRequest $request)
 	{
 		$requestedShow = $request->getValue('TVShowTitle');
-		$selectedShow = $this->getClosestMatchingTitle($this->getTVShows(), $requestedShow);
 
-		$requestedSeason = $request->getValue('Season');
-		$requestedEpisode = $request->getValue('Episode');
+		if ($requestedShow) {
+			$selectedShow = $this->getClosestMatchingTitle($this->getTVShows(), $requestedShow);
 
-		$episodes = $this->getEpisodes($selectedShow['tvshowid']);
+			$requestedSeason = $request->getValue('Season');
+			$requestedEpisode = $request->getValue('Episode');
 
-		$responseText = null;
-
-		foreach ($episodes as $episode) {
-			$isCorrectSeason = (!$requestedSeason || ($requestedSeason && $episode['season'] == $requestedSeason));
-			$isCorrectEpisode = $requestedEpisode == $episode['episode'];
-
-			if ($isCorrectSeason && $isCorrectEpisode) {
-				if ($this->play($episode['episodeid'], 'episode')) {
-					$responseText = sprintf('Playing %s', $selectedShow['label']);
-				} else {
-					$responseText = 'Something went wrong';
-				}
-				break;
+			if ($requestedSeason && !$requestedEpisode) {
+				$requestedEpisode = 1;
 			}
-		}
 
-		if (!$responseText) {
-			$responseText = sprintf(
-				'I could\'nt find %s %s episode %d',
-				$requestedShow,
-				$requestedSeason ? sprintf('season %d', $requestedSeason) : '',
-				$requestedEpisode
-			);
-		}
+			$responseText = null;
 
-		return $responseText;
+			foreach ($this->getEpisodes($selectedShow['tvshowid']) as $episode) {
+				$isCorrectSeason = (!$requestedSeason || ($requestedSeason && $episode['season'] == $requestedSeason));
+				$isCorrectEpisode = $requestedEpisode == $episode['episode'];
+
+				if ($isCorrectSeason && $isCorrectEpisode) {
+					if ($this->play($episode['episodeid'], 'episode')) {
+						$responseText = sprintf('Playing %s', $selectedShow['label']);
+					} else {
+						$responseText = 'Something went wrong';
+					}
+					break;
+				}
+			}
+
+			if (!$responseText) {
+				$responseText = sprintf(
+					'I could\'nt find %s %s episode %d',
+					$requestedShow,
+					$requestedSeason ? sprintf('season %d', $requestedSeason) : '',
+					$requestedEpisode
+				);
+			}
+
+			return $responseText;
+		}
 	}
 
 	public function playAlbum(AlexaRequest $request)
