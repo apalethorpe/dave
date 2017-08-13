@@ -92,6 +92,30 @@ class KodiService
 		return $responseText;
 	}
 
+	public function playAlbum(AlexaRequest $request) {
+		$requestedArtist = $request->getValue('ArtistName');
+
+		$selectedArtist = null;
+
+		if ($requestedArtist) {
+			$selectedArtist = $this->getArtist($requestedArtist)['label'];
+		}
+
+		$requestedAlbum = $request->getValue('AlbumTitle');
+		
+		$selectedAlbum = $this->getClosestMatchingTitle($this->getAlbums($selectedArtist), $requestedAlbum);
+		if ($this->play($selectedAlbum['albumid'], 'album')) {
+			$responseText = sprintf('Playing album %s', $selectedAlbum['label']);
+			if ($selectedArtist) {
+				$responseText .= sprintf(' by %s', $selectedArtist);
+			}
+		} else {
+			$responseText = 'Something went wrong';
+		}
+
+		return $responseText;
+	}
+
 	public function whatsPlaying(AlexaRequest $request)
 	{
 		$player = $this->getPlayer();
@@ -204,12 +228,33 @@ class KodiService
 		return $this->curl->get($params)['result']['episodes'];
 	}
 
+	private function getArtist($artistName) {
+		$params = ['method' => 'AudioLibrary.GetArtists'];
+
+		$artists = $this->curl->get($params)['result']['artists'];
+
+		return $this->getClosestMatchingTitle($artists, $artistName);
+	}
+
+	private function getAlbums($artistName = null) {
+		$params = ['method' => 'AudioLibrary.GetAlbums'];
+		if ($artistName) {
+			$params['params'] = [
+				'filter' => ['artist' => $artistName]
+			];
+		}
+
+		return $this->curl->get($params)['result']['albums'];
+	}
+
 	private function getClosestMatchingTitle($items, $target)
 	{
 		$selected = null;
 
 		// Try to find an exact match or a title containing every word in the request
 		$targetParts = explode(' ', $target);
+
+		$bestScore = 0;
 
 		foreach ($items as $item) {
 			if (strtolower($item['label']) == strtolower($target)) {
@@ -220,12 +265,12 @@ class KodiService
 			$score = 0;
 
 			foreach ($targetParts as $targetPart) {
-				if (stripos(preg_replace('/[A-Za-z0-9\s]/', '', $item['label']), $targetPart) !== false) {
+				if (stripos(preg_replace('/[^A-Za-z0-9\s]/', '', $item['label']), $targetPart) !== false) {
 					$score++;
 				}
 			}
 
-			if ($score == count($targetParts)) {
+			if ($score == count($targetParts) && $score > $bestScore) {
 				$selected = $item;
 			}
 		}
