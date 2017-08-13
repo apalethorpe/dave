@@ -280,6 +280,14 @@ class KodiService
 		return $responseText;
 	}
 
+	public function updateLibraries(AlexaRequest $request)
+	{
+		$this->curl->get(['method' => 'AudioLibrary.Scan']);
+		$this->curl->get(['method' => 'VideoLibrary.Scan']);
+
+		return 'Scanning for new content';
+	}
+
 	private function play($itemId, $type = 'movie')
 	{
 		$params = ['method' => 'Player.Open', 'params' => ['item' => [$type . 'id' => $itemId]]];
