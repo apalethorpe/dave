@@ -229,8 +229,33 @@ class KodiService
 		$requestedAlbum = $request->getValue('AlbumTitle');
 		
 		$selectedAlbum = $this->getClosestMatchingTitle($this->getAlbums($selectedArtist), $requestedAlbum);
+
 		if ($this->play($selectedAlbum['albumid'], 'album')) {
 			$responseText = sprintf('Playing album %s', $selectedAlbum['label']);
+			if ($selectedArtist) {
+				$responseText .= sprintf(' by %s', $selectedArtist);
+			}
+		} else {
+			$responseText = 'Something went wrong';
+		}
+
+		return $responseText;
+	}
+
+	public function playSong(AlexaRequest $request)
+	{
+		$requestedArtist = $request->getValue('ArtistName');
+
+		if ($requestedArtist) {
+			$selectedArtist = $this->getArtist($requestedArtist)['label'];
+		}
+
+		$requestedSong = $request->getValue('SongTitle');
+
+		$selectedSong = $this->getClosestMatchingTitle($this->getSongs($selectedArtist), $requestedSong);
+
+		if ($this->play($selectedSong['songid'], 'song')) {
+			$responseText = sprintf('Playing %s', $selectedSong['label']);
 			if ($selectedArtist) {
 				$responseText .= sprintf(' by %s', $selectedArtist);
 			}
@@ -362,14 +387,24 @@ class KodiService
 
 	private function getAlbums($artistName = null)
 	{
-		$params = ['method' => 'AudioLibrary.GetAlbums'];
+		return $this->getMusic('albums', $artistName)['albums'];
+	}
+
+	private function getSongs($artistName = null)
+	{
+		return $this->getMusic('songs', $artistName)['songs'];
+	}
+
+	private function getMusic($type, $artistName = null)
+	{
+		$params = ['method' => ($type == 'albums' ? 'AudioLibrary.GetAlbums' : 'AudioLibrary.GetSongs')];
 		if ($artistName) {
 			$params['params'] = [
 				'filter' => ['artist' => $artistName]
 			];
 		}
 
-		return $this->curl->get($params)['result']['albums'];
+		return $this->curl->get($params)['result'];
 	}
 
 	private function getClosestMatchingTitle($items, $target)
@@ -378,8 +413,6 @@ class KodiService
 
 		// Try to find an exact match or a title containing every word in the request
 		$targetParts = explode(' ', $target);
-
-		$bestScore = 0;
 
 		foreach ($items as $item) {
 			if (strtolower($item['label']) == strtolower($target)) {
@@ -395,7 +428,7 @@ class KodiService
 				}
 			}
 
-			if ($score == count($targetParts) && $score > $bestScore) {
+			if ($score == count($targetParts)) {
 				$selected = $item;
 			}
 		}
