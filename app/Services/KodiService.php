@@ -25,6 +25,23 @@ class KodiService
 		return $this->pauseResume(false);
 	}
 
+	private function pauseResume($pause)
+	{
+		$player = $this->getPlayerId();
+
+		$responseText = null; 
+
+		if ($player !== null && ((!$this->isPaused($player) && $pause) || ($this->isPaused($player) && !$pause))) {
+			$params = ['method' => 'Player.PlayPause', 'params' => ['playerid' => $player], 'id' => 1];
+			$this->curl->get($params);
+			$responseText = 'OK';
+		} else {
+			$responseText = 'How do you expect me to pause when there\'s nothing playing? Dumbass.';
+		}
+
+		return $responseText;
+	}
+
 	public function stop(AlexaRequest $request)
 	{
 		$player = $this->getPlayerId();
@@ -35,9 +52,111 @@ class KodiService
 			$params = ['method' => 'Player.Stop', 'params' => ['playerid' => $player]];
 			$this->curl->get($params);
 			$responseText = 'OK';
+		} else {
+			$responseText = 'I can\'t stop nothing. Moron.';
 		}
 
 		return $responseText;
+	}
+
+	public function skip(AlexaRequest $request)
+	{
+		$player = $this->getPlayerId();
+
+		$responseText = null;
+
+		if ($player !== null) {
+			$params = ['method' => 'Player.GoTo', 'params' => ['playerid' => $player, 'to' => 'next']];
+			$responseText = 'OK';
+		} else {
+			$responseText = 'Nothing is currently playing, so how can I skip? Stupid.';
+		}
+
+		return $responseText;
+	}
+
+	public function seek(AlexaRequest $request)
+	{
+		$player = $this->getPlayerId();
+
+		if ($player) {
+			$playerProperties = $this->getPlayerProperties($player, ['time']);
+
+			$direction = $request->getValue('SeekType');
+			$period = $request->getValue('Period');
+
+			$hours = 0;
+			$minutes = 0;
+			$seconds = 0;
+
+			preg_match('/\d*H/', $period, $hours);
+			preg_match('/\d*M/', $period, $minutes);
+			preg_match('/\d*S/', $period, $seconds);
+
+			$hours = isset($hours[0]) ? preg_replace('/[^0-9]/', '', $hours[0]) : 0;
+			$minutes = isset($minutes[0]) ? preg_replace('/[^0-9]/', '', $minutes[0]) : 0;
+			$seconds = isset($seconds[0]) ? preg_replace('/[^0-9]/', '', $seconds[0]) : 0;
+
+			$position = $playerProperties['time'];
+
+			if ($direction == 'fast forward') {
+				for ($i = 0; $i < $seconds; $i++) {
+					if ($position['seconds'] == 60) {
+						$position['minutes']++;
+						if ($position['minutes'] == 60) {
+							$position['hours']++;
+							$position['minutes'] = 0;
+						}
+						$position['seconds'] = 0;
+					}
+
+					$position['seconds']++;
+				}
+
+				for ($i = 0; $i < $minutes; $i++) {
+					if ($position['minutes'] == 60) {
+						$position['hours']++;
+						$position['minutes'] = 0;
+					}
+
+					$position['minutes']++;
+				}
+
+				for ($i = 0; $i < $hours; $i++) {
+					$position['hours']++;
+				}
+			} elseif ($direction == 'rewind') {
+				for ($i = 0; $i < $seconds; $i++) {
+					if ($position['seconds'] == -1) {
+						$position['minutes']--;
+						if ($position['minutes'] == -1) {
+							$position['hours']--;
+							$position['minutes'] = 59;
+						}
+						$position['seconds'] = 59;
+					}
+
+					$position['seconds']--;
+				}
+
+				for ($i = 0; $i < $minutes; $i++) {
+					if ($position['minutes'] == -1) {
+						$position['hours']--;
+						$position['minutes'] = 59;
+					}
+
+					$position['minutes']--;
+				}
+
+				for ($i = 0; $i < $hours; $i++) {
+					$position['hours']--;
+				}
+			}
+
+			$params = ['method' => 'Player.Seek', 'params' => ['playerid' => $player, 'value' => $position]];
+
+			$this->curl->get($params);
+		}
 	}
 
 	public function playMovie(AlexaRequest $request)
@@ -92,7 +211,8 @@ class KodiService
 		return $responseText;
 	}
 
-	public function playAlbum(AlexaRequest $request) {
+	public function playAlbum(AlexaRequest $request)
+	{
 		$requestedArtist = $request->getValue('ArtistName');
 
 		$selectedArtist = null;
@@ -193,16 +313,6 @@ class KodiService
 		return $this->getPlayerProperties($player, ['speed'])['speed'] === 0;
 	}
 
-	private function pauseResume($pause)
-	{
-		$player = $this->getPlayerId();
-		if ($player !== null && ((!$this->isPaused($player) && $pause) || ($this->isPaused($player) && !$pause))) {
-			$params = ['method' => 'Player.PlayPause', 'params' => ['playerid' => $player], 'id' => 1];
-			$this->curl->get($params);
-			return 'OK';
-		}
-	}
-
 	private function getMovies()
 	{
 		$params = ['method' => 'VideoLibrary.GetMovies'];
@@ -228,7 +338,8 @@ class KodiService
 		return $this->curl->get($params)['result']['episodes'];
 	}
 
-	private function getArtist($artistName) {
+	private function getArtist($artistName)
+	{
 		$params = ['method' => 'AudioLibrary.GetArtists'];
 
 		$artists = $this->curl->get($params)['result']['artists'];
@@ -236,7 +347,8 @@ class KodiService
 		return $this->getClosestMatchingTitle($artists, $artistName);
 	}
 
-	private function getAlbums($artistName = null) {
+	private function getAlbums($artistName = null)
+	{
 		$params = ['method' => 'AudioLibrary.GetAlbums'];
 		if ($artistName) {
 			$params['params'] = [
