@@ -216,6 +216,51 @@ class KodiService
 		}
 	}
 
+	public function playNextEpisode(AlexaRequest $request)
+	{
+		$requestedShow = $request->getValue('TVShowTitle');
+
+		if ($requestedShow) {
+			$selectedShow = $this->getClosestMatchingTitle($this->getTVShows(), $requestedShow);
+
+			$current = $this->getCurrentMedia();
+
+			$responseText = null;
+
+			foreach ($this->getEpisodes($selectedShow['tvshowid']) as $episode) {
+				if ($this->isNextEpisode($current, $episode)) {
+					if ($this->play($episode['episodeid'], 'episode')) {
+						$responseText = sprintf('Playing %s episode %s', $selectedShow['label'], $episode['episode']);
+					} else {
+						$responseText = 'Something went wrong';
+					}
+					break;
+				}
+			}
+
+			if (!$responseText) {
+				$responseText = sprintf('There aren\'t any unwatched episodes of %s', $requestedShow);
+			}
+
+			return $responseText;
+		}
+	}
+
+	private function isNextEpisode($current, $episode)
+	{
+		$isNextEpisode = true;
+
+		if ($episode['playcount']) {
+			$isNextEpisode = false;
+		}
+		
+		if ($isNextEpisode && $current && $current['type'] == 'episode') {
+			$isNextEpisode = ($current['episode'] != $episode['episode'] || $current['showtitle'] != $episode['showtitle']);
+		}
+
+		return $isNextEpisode;
+	}
+
 	public function playAlbum(AlexaRequest $request)
 	{
 		$requestedArtist = $request->getValue('ArtistName');
@@ -273,15 +318,7 @@ class KodiService
 		$responseText = null;
 
 		if ($player) {
-			$params = [
-				'method' => 'Player.GetItem',
-				'params' => [
-					'playerid' => $player['playerid'],
-					'properties' => ['title', 'album', 'artist', 'season', 'episode', 'showtitle']
-				]
-			];
-
-			$item = $this->curl->get($params)['result']['item'];
+			$item = $this->getCurrentMedia();
 
 			if ($item['type'] == 'song') {
 				$responseText = sprintf('You\'re listening to %s, by %s', $item['title'], $item['artist'][0]);
@@ -351,6 +388,23 @@ class KodiService
 		return $this->getPlayerProperties($player, ['speed'])['speed'] === 0;
 	}
 
+	private function getCurrentMedia()
+	{
+		$player = $this->getPlayer();
+
+		if ($player) {
+			$params = [
+				'method' => 'Player.GetItem',
+				'params' => [
+					'playerid' => $player['playerid'],
+					'properties' => ['title', 'album', 'artist', 'season', 'episode', 'showtitle']
+				]
+			];
+
+			return $this->curl->get($params)['result']['item'];
+		}
+	}
+
 	private function getMovies()
 	{
 		$params = ['method' => 'VideoLibrary.GetMovies'];
@@ -369,7 +423,7 @@ class KodiService
 			'method' => 'VideoLibrary.GetEpisodes',
 			'params' => [
 				'tvshowid' => $tvShowId,
-				'properties' => ['season', 'episode']
+				'properties' => ['season', 'episode', 'playcount', 'lastplayed', 'showtitle']
 			]
 		];
 		
