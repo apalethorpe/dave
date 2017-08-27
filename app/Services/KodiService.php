@@ -67,6 +67,7 @@ class KodiService
 
 		if ($player !== null) {
 			$params = ['method' => 'Player.GoTo', 'params' => ['playerid' => $player, 'to' => 'next']];
+			$this->curl->get($params);
 			$responseText = 'OK';
 		} else {
 			$responseText = 'Nothing is currently playing, so how can I skip? Stupid.';
