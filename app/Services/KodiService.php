@@ -230,7 +230,12 @@ class KodiService
 			foreach ($this->getEpisodes($selectedShow['tvshowid']) as $episode) {
 				if ($this->isNextEpisode($current, $episode)) {
 					if ($this->play($episode['episodeid'], 'episode')) {
-						$responseText = sprintf('Playing %s episode %s', $selectedShow['label'], $episode['episode']);
+						$responseText = sprintf(
+							'Playing %s, season %s, episode %s',
+							$selectedShow['label'],
+							$episode['season'],
+							$episode['episode']
+						);
 					} else {
 						$responseText = 'Something went wrong';
 					}
