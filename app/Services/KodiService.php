@@ -160,6 +160,28 @@ class KodiService
 		}
 	}
 
+	public function increaseVolume(AlexaRequest $request)
+	{
+		$this->adjustVolume();
+	}
+
+	public function decreaseVolume(AlexaRequest $request)
+	{
+		$this->adjustVolume(false);
+	}
+
+	private function adjustVolume($increment = true)
+	{
+		$params = [
+			'method' => 'Application.SetVolume',
+			'params' => ['volume' => ($increment ? 'increment' : 'decrement')]
+		];
+
+		for ($i = 0; $i < 5; $i++) {
+			$this->curl->get($params);
+		}
+	}
+
 	public function playMovie(AlexaRequest $request)
 	{
 		$requestedMovie = $request->getValue('MovieTitle');
